@@ -1,0 +1,25 @@
+{
+  "plugins": {
+    "superpowers": {
+      "enabled": true
+    },
+    "figma": {
+      "enabled": true
+    },
+    "open-design/open-design": {
+      "enabled": true
+    },
+    "obsidian-skills/obsidian": {
+      "enabled": true
+    },
+    "ecc/ecc": {
+      "enabled": true
+    },
+    "karpathy-skills/andrej-karpathy-skills": {
+      "enabled": true
+    },
+    "ruflo/ruflo-core": {
+      "enabled": true
+    }
+  }
+}
