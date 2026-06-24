@@ -1,3 +1,5 @@
+import React, { useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { CartProvider } from "./context/CartContext";
@@ -49,6 +51,13 @@ function AppContent() {
 }
 
 function App() {
+  useEffect(() => {
+    // Hide the splashscreen and show main window once React is ready
+    setTimeout(() => {
+      invoke('close_splashscreen').catch(console.error);
+    }, 500); // Small 500ms delay to ensure seamless transition
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>

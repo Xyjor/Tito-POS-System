@@ -14,6 +14,18 @@ use commands::{
 };
 use tauri::Manager;
 
+#[tauri::command]
+async fn close_splashscreen(app_handle: tauri::AppHandle) {
+    if let Some(splashscreen) = app_handle.get_webview_window("splashscreen") {
+        splashscreen.close().unwrap();
+    }
+    if let Some(main_window) = app_handle.get_webview_window("main") {
+        main_window.maximize().unwrap();
+        main_window.show().unwrap();
+        main_window.set_focus().unwrap();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -49,6 +61,7 @@ pub fn run() {
             update_user,
             update_password,
             delete_user,
+            close_splashscreen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -11,15 +11,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(() => {
-    const saved = localStorage.getItem("shop_pos_user");
+    const saved = sessionStorage.getItem("shop_pos_user");
     return saved ? JSON.parse(saved) : null;
   });
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem("shop_pos_user", JSON.stringify(user));
+      sessionStorage.setItem("shop_pos_user", JSON.stringify(user));
     } else {
-      localStorage.removeItem("shop_pos_user");
+      sessionStorage.removeItem("shop_pos_user");
     }
   }, [user]);
 

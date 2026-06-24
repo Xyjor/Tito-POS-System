@@ -109,7 +109,7 @@ export function DashboardPage() {
             <select
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 shadow-sm font-medium text-slate-700"
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as any)}
+              onChange={(e) => setDateFilter(e.target.value as "7d" | "30d" | "1y" | "all")}
             >
               <option value="7d">Last 7 Days</option>
               <option value="30d">Last 30 Days</option>
@@ -167,7 +167,8 @@ export function DashboardPage() {
                     tickFormatter={(val) => `₱${val}`} 
                   />
                   <Tooltip 
-                    formatter={(value: any) => [formatCurrency(Number(value)), "Revenue"]}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(value: any) => [formatCurrency(Number(value || 0)), "Revenue"]}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Area
