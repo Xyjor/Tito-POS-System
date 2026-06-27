@@ -30,10 +30,10 @@ fn map_product(row: sqlx::postgres::PgRow) -> Result<Product, sqlx::Error> {
 }
 
 const PRODUCT_SELECT: &str = "
-    SELECT p.id, p.sku, p.name, p.category_id, c.name as category_name, p.unit_price, p.cost_price,
+    SELECT p.id, p.sku, p.name, p.category_id, COALESCE(c.name, 'Unknown') as category_name, p.unit_price, p.cost_price,
            p.stock_qty, p.min_stock, p.barcode, p.is_active, p.created_at, p.updated_at
     FROM products p
-    JOIN categories c ON c.id = p.category_id
+    LEFT JOIN categories c ON c.id = p.category_id
 ";
 
 // --- IMPLEMENTATIONS ---
@@ -110,13 +110,7 @@ pub async fn create_product_impl(pool: &DbPool, input: CreateProductInput) -> Re
 
     match result {
         Ok(query_result) => {
-            query_result.map_err(|e| {
-                if e.to_string().contains("unique constraint") {
-                    AppError::Internal("SKU already exists.".to_string())
-                } else {
-                    AppError::from(e)
-                }
-            })?;
+            query_result?;
             get_product_by_id_impl(pool, &id).await
         }
         Err(_) => Err(AppError::Timeout)
@@ -155,13 +149,7 @@ pub async fn update_product_impl(pool: &DbPool, input: UpdateProductInput) -> Re
 
     match result {
         Ok(query_result) => {
-            let res = query_result.map_err(|e| {
-                if e.to_string().contains("unique constraint") {
-                    AppError::Internal("SKU already exists.".to_string())
-                } else {
-                    AppError::from(e)
-                }
-            })?;
+            let res = query_result?;
             if res.rows_affected() == 0 {
                 return Err(AppError::Internal("Product not found.".to_string()));
             }
@@ -187,6 +175,29 @@ pub async fn delete_product_impl(pool: &DbPool, product_id: &str) -> Result<(), 
             }
             Ok(())
         }
+        Err(_) => Err(AppError::Timeout)
+    }
+}
+
+pub async fn permanently_delete_product_impl(pool: &DbPool, product_id: &str) -> Result<(), AppError> {
+    let result = tokio::time::timeout(Duration::from_secs(3), async {
+        let res = sqlx::query("DELETE FROM products WHERE id = $1")
+            .bind(product_id)
+            .execute(pool)
+            .await?;
+
+        if res.rows_affected() == 0 {
+            return Err(sqlx::Error::RowNotFound);
+        }
+
+        Ok(())
+    })
+    .await;
+
+    match result {
+        Ok(Ok(_)) => Ok(()),
+        Ok(Err(sqlx::Error::RowNotFound)) => Err(AppError::Internal("Product not found.".to_string())),
+        Ok(Err(e)) => Err(AppError::from(e)),
         Err(_) => Err(AppError::Timeout)
     }
 }
@@ -316,6 +327,11 @@ pub async fn update_product(pool: State<'_, DbPool>, input: UpdateProductInput) 
 #[tauri::command]
 pub async fn delete_product(pool: State<'_, DbPool>, product_id: String) -> Result<(), AppError> {
     delete_product_impl(&*pool, &product_id).await
+}
+
+#[tauri::command]
+pub async fn permanently_delete_product(pool: State<'_, DbPool>, product_id: String) -> Result<(), AppError> {
+    permanently_delete_product_impl(&*pool, &product_id).await
 }
 
 #[tauri::command]

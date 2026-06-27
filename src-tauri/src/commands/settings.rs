@@ -46,7 +46,7 @@ pub async fn update_settings_impl(
 
     match result {
         Ok(res) => {
-            res.map_err(AppError::from)?;
+            res?;
             load_settings(pool).await
         }
         Err(_) => Err(AppError::Timeout),
@@ -71,7 +71,7 @@ async fn load_settings(pool: &DbPool) -> Result<ShopSettings, AppError> {
 
     match result {
         Ok(query_res) => {
-            let map = query_res.map_err(AppError::from)?;
+            let map = query_res?;
             Ok(ShopSettings::from_map(map))
         }
         Err(_) => Err(AppError::Timeout),

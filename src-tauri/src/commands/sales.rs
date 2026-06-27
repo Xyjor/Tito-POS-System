@@ -134,7 +134,7 @@ pub async fn get_sale_impl(
 
         if let Some(row) = sale_row {
             let created_at: chrono::NaiveDateTime = row.try_get("created_at")?;
-            
+
             let mut sale_detail = SaleDetail {
                 id: row.try_get("id")?,
                 receipt_no: row.try_get("receipt_no")?,
@@ -201,6 +201,23 @@ pub async fn get_sale_impl(
     }
 }
 
+pub async fn delete_sale_impl(pool: &DbPool, sale_id: &str) -> Result<(), AppError> {
+    let result = tokio::time::timeout(Duration::from_secs(3), async {
+        sqlx::query("DELETE FROM sales WHERE id = $1")
+            .bind(sale_id)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    })
+    .await;
+
+    match result {
+        Ok(inner) => inner,
+        Err(_) => Err(AppError::Timeout),
+    }
+}
+
 async fn load_settings_map(
     pool: &DbPool,
 ) -> Result<std::collections::HashMap<String, String>, sqlx::Error> {
@@ -243,6 +260,14 @@ pub async fn get_sale(
     sale_id: String,
 ) -> Result<(SaleDetail, ReceiptData), AppError> {
     get_sale_impl(&*pool, &sale_id).await
+}
+
+#[tauri::command]
+pub async fn delete_sale(
+    pool: State<'_, DbPool>,
+    sale_id: String,
+) -> Result<(), AppError> {
+    delete_sale_impl(&*pool, &sale_id).await
 }
 
 // --- TESTS ---

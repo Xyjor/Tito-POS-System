@@ -50,6 +50,10 @@ export function deleteProduct(productId: string): Promise<void> {
   return invoke("delete_product", { productId });
 }
 
+export function permanentlyDeleteProduct(productId: string): Promise<void> {
+  return invoke("permanently_delete_product", { productId });
+}
+
 export function adjustStock(input: AdjustStockInput): Promise<Product> {
   return invoke("adjust_stock", { input });
 }
@@ -92,6 +96,10 @@ export function listSales(): Promise<SaleSummary[]> {
 
 export function getSale(saleId: string): Promise<CheckoutResult> {
   return invoke("get_sale", { saleId });
+}
+
+export function deleteSale(saleId: string): Promise<void> {
+  return invoke("delete_sale", { saleId });
 }
 
 export function getSettings(): Promise<ShopSettings> {

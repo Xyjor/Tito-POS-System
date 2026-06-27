@@ -10,8 +10,7 @@ pub async fn login(pool: State<'_, DbPool>, input: LoginInput) -> Result<User, A
     let row = sqlx::query("SELECT id, username, password_hash, role, can_manage_products FROM users WHERE username = $1")
         .bind(&input.username)
         .fetch_optional(&*pool)
-        .await
-        .map_err(|e| AppError::Database(e.to_string()))?;
+        .await?;
 
     let row = match row {
         Some(r) => r,
@@ -19,7 +18,7 @@ pub async fn login(pool: State<'_, DbPool>, input: LoginInput) -> Result<User, A
     };
 
     let password_hash: String = row.try_get("password_hash").unwrap_or_default();
-    
+
     match verify(&input.password, &password_hash) {
         Ok(true) => {
             Ok(User {

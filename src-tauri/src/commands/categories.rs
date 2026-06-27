@@ -37,29 +37,29 @@ pub async fn list_categories(pool: State<'_, DbPool>) -> Result<Vec<Category>, A
 
 pub async fn create_category_impl(pool: &DbPool, name: String) -> Result<Category, AppError> {
     let id = Uuid::new_v4().to_string();
-    
+
     let result = tokio::time::timeout(Duration::from_secs(3), async {
-        // Find max sort_order
-        let max_sort_order: Option<i32> = sqlx::query_scalar("SELECT MAX(sort_order) FROM categories")
-            .fetch_optional(pool)
+        // Find max sort_order using COALESCE to handle empty table
+        let max_sort_order: i32 = sqlx::query_scalar("SELECT COALESCE(MAX(sort_order), 0) FROM categories")
+            .fetch_one(pool)
             .await?;
-            
-        let next_sort_order = max_sort_order.unwrap_or(0) + 1;
-            
+
+        let next_sort_order = max_sort_order + 1;
+
         sqlx::query("INSERT INTO categories (id, name, sort_order) VALUES ($1, $2, $3)")
             .bind(&id)
             .bind(name.trim())
             .bind(next_sort_order)
             .execute(pool)
             .await?;
-            
+
         sqlx::query_as::<_, Category>("SELECT id, name, sort_order FROM categories WHERE id = $1")
             .bind(&id)
             .fetch_one(pool)
             .await
     })
     .await;
-    
+
     match result {
         Ok(query_result) => Ok(query_result?),
         Err(_) => Err(AppError::Timeout)
@@ -68,29 +68,29 @@ pub async fn create_category_impl(pool: &DbPool, name: String) -> Result<Categor
 
 pub async fn delete_category_impl(pool: &DbPool, id: String) -> Result<(), AppError> {
     let result = tokio::time::timeout(Duration::from_secs(3), async {
-        // Check if there are active products using this category
-        let product_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE category_id = $1 AND is_active = 1")
+        // Check if there are any products (active or inactive) using this category
+        let product_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE category_id = $1")
             .bind(&id)
             .fetch_one(pool)
             .await?;
-            
+
         if product_count > 0 {
-            return Err(sqlx::Error::Protocol("Cannot delete category because it has active products.".to_string()));
+            return Err(sqlx::Error::Protocol(format!("Cannot delete category because it has {} product(s). Please delete or reassign all products first.", product_count)));
         }
-        
+
         let res = sqlx::query("DELETE FROM categories WHERE id = $1")
             .bind(&id)
             .execute(pool)
             .await?;
-            
+
         if res.rows_affected() == 0 {
             return Err(sqlx::Error::RowNotFound);
         }
-        
+
         Ok(())
     })
     .await;
-    
+
     match result {
         Ok(Ok(_)) => Ok(()),
         Ok(Err(sqlx::Error::Protocol(msg))) => Err(AppError::Internal(msg)),

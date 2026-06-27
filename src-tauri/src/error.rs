@@ -27,7 +27,29 @@ impl Serialize for AppError {
 impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
         eprintln!("Database error: {:?}", err);
-        AppError::Database("An error occurred while communicating with the database.".to_string())
+        match err {
+            sqlx::Error::Database(db_err) => {
+                if let Some(constraint) = db_err.constraint() {
+                    match constraint {
+                        "categories_name_key" => {
+                            return AppError::Validation("Category name already exists.".to_string());
+                        }
+                        "products_sku_key" => {
+                            return AppError::Validation("Product SKU already exists.".to_string());
+                        }
+                        "users_username_key" => {
+                            return AppError::Validation("Username already exists.".to_string());
+                        }
+                        _ => {
+                            return AppError::Database(format!("Database constraint error: {}", db_err.message()));
+                        }
+                    }
+                }
+                AppError::Database(db_err.message().to_string())
+            }
+            sqlx::Error::RowNotFound => AppError::Internal("Record not found.".to_string()),
+            _ => AppError::Database(format!("Database error: {}", err)),
+        }
     }
 }
 

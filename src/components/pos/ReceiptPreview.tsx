@@ -3,6 +3,7 @@ import { formatCurrency } from "../../lib/currency";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import { toPng } from "html-to-image";
+import html2canvas from "html2canvas";
 import { useToast } from "../../context/ToastContext";
 import { useState } from "react";
 
@@ -30,10 +31,22 @@ export function ReceiptPreview({ open, receipt, onClose }: ReceiptPreviewProps) 
         return;
       }
       
-      const url = await toPng(receiptEl, {
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-      });
+      let url: string;
+      try {
+        // Try html-to-image first
+        url = await toPng(receiptEl, {
+          backgroundColor: '#ffffff',
+          pixelRatio: 2,
+        });
+      } catch (primaryError) {
+        console.warn('html-to-image failed, trying html2canvas:', primaryError);
+        // Fallback to html2canvas
+        const canvas = await html2canvas(receiptEl, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+        });
+        url = canvas.toDataURL('image/png');
+      }
       
       const a = document.createElement('a');
       a.href = url;
@@ -45,7 +58,28 @@ export function ReceiptPreview({ open, receipt, onClose }: ReceiptPreviewProps) 
       showToast('Receipt saved successfully as PNG', 'success');
     } catch (err) {
       console.error('Error saving receipt:', err);
-      showToast(`Error: ${err instanceof Error ? err.message : String(err)}`, 'error');
+      let errorMessage = 'Unknown error';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null) {
+        // Handle DOM events or other objects
+        if ('type' in err) {
+          errorMessage = `Event: ${(err as Event).type}`;
+        } else if ('message' in err) {
+          errorMessage = String((err as { message: unknown }).message);
+        } else {
+          try {
+            errorMessage = JSON.stringify(err);
+          } catch {
+            errorMessage = 'Unable to serialize error object';
+          }
+        }
+      } else {
+        errorMessage = String(err);
+      }
+      
+      showToast(`Error: ${errorMessage}`, 'error');
     } finally {
       setSaving(false);
     }

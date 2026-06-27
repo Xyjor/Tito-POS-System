@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { getSale, listSales } from "../lib/tauri";
+import { getSale, listSales, deleteSale } from "../lib/tauri";
 import { formatCurrency } from "../lib/currency";
 import type { ReceiptData, SaleSummary } from "../types";
 import { ReceiptPreview } from "../components/pos/ReceiptPreview";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Button } from "../components/ui/Button";
+import { useAuth } from "../context/AuthContext";
 
 export function SalesPage() {
   const [sales, setSales] = useState<SaleSummary[]>([]);
@@ -12,6 +13,7 @@ export function SalesPage() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     listSales()
@@ -26,6 +28,19 @@ export function SalesPage() {
       const [, receiptData] = await getSale(saleId);
       setReceipt(receiptData);
       setReceiptOpen(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleDeleteSale(saleId: string) {
+    setError(null);
+    if (!confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
+      return;
+    }
+    try {
+      await deleteSale(saleId);
+      setSales(sales.filter((sale) => sale.id !== saleId));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -72,9 +87,16 @@ export function SalesPage() {
                     <td className="px-4 py-3">{sale.item_count}</td>
                     <td className="px-4 py-3">{formatCurrency(sale.total)}</td>
                     <td className="px-4 py-3">
-                      <Button variant="secondary" onClick={() => viewReceipt(sale.id)}>
-                        View Receipt
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="secondary" onClick={() => viewReceipt(sale.id)}>
+                          View Receipt
+                        </Button>
+                        {user?.role === 'admin' && (
+                          <Button variant="danger" onClick={() => handleDeleteSale(sale.id)}>
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -3,14 +3,16 @@ pub mod db;
 pub mod error;
 pub mod models;
 pub mod services;
+pub mod backup;
 
 use commands::{
     categories::{list_categories, create_category, delete_category},
-    products::{adjust_stock, create_product, delete_product, list_products, update_product, update_stock_qty},
-    sales::{checkout, get_sale, list_sales, get_revenue_stats},
+    products::{adjust_stock, create_product, delete_product, permanently_delete_product, list_products, update_product, update_stock_qty},
+    sales::{checkout, get_sale, list_sales, get_revenue_stats, delete_sale},
     settings::{get_settings, update_settings},
     auth::login,
     users::{list_users, create_user, update_user, update_password, delete_user},
+    backup::{create_backup, list_backups, restore_backup, delete_backup, get_backup_status, start_auto_backup, stop_auto_backup, verify_database_connection, auto_restore_on_startup},
 };
 use tauri::Manager;
 
@@ -33,9 +35,16 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let app_handle = app.handle().clone();
             tauri::async_runtime::block_on(async {
                 let pool = db::init_pool().await.expect("failed to initialize database");
-                app.manage(pool);
+                app.manage(pool.clone());
+                
+                // Attempt auto-restore on startup if database is corrupted
+                let _ = commands::backup::auto_restore_on_startup(app_handle.clone()).await;
+                
+                // Start automatic backup scheduler (every 5 minutes)
+                let _ = commands::backup::start_auto_backup(app_handle, Some(5)).await;
             });
             Ok(())
         })
@@ -47,11 +56,13 @@ pub fn run() {
             create_product,
             update_product,
             delete_product,
+            permanently_delete_product,
             adjust_stock,
             update_stock_qty,
             checkout,
             list_sales,
             get_sale,
+            delete_sale,
             get_revenue_stats,
             get_settings,
             update_settings,
@@ -62,6 +73,15 @@ pub fn run() {
             update_password,
             delete_user,
             close_splashscreen,
+            create_backup,
+            list_backups,
+            restore_backup,
+            delete_backup,
+            get_backup_status,
+            start_auto_backup,
+            stop_auto_backup,
+            verify_database_connection,
+            auto_restore_on_startup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

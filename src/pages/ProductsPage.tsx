@@ -4,6 +4,7 @@ import {
   updateStockQty,
   createProduct,
   deleteProduct,
+  permanentlyDeleteProduct,
   listCategories,
   createCategory,
   deleteCategory,
@@ -77,6 +78,10 @@ export function ProductsPage() {
   });
 
   function openCreateForm() {
+    if (categories.length === 0) {
+      setError("Please create at least one category before adding products.");
+      return;
+    }
     setSelectedProduct(null);
     setForm({
       ...emptyForm,
@@ -114,6 +119,10 @@ export function ProductsPage() {
     setSaving(true);
     setError(null);
     try {
+      if (!form.category_id) {
+        setError("Please select a category.");
+        return;
+      }
       if (selectedProduct) {
         await updateProduct({
           id: selectedProduct.id,
@@ -152,6 +161,14 @@ export function ProductsPage() {
       return;
     }
     await deleteProduct(product.id);
+    await loadProducts();
+  }
+
+  async function handlePermanentDelete(product: Product) {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete "${product.name}"? This action cannot be undone and will remove the product from the database completely.`)) {
+      return;
+    }
+    await permanentlyDeleteProduct(product.id);
     await loadProducts();
   }
 
@@ -262,7 +279,11 @@ export function ProductsPage() {
                           <Button variant="danger" onClick={() => handleDelete(product)}>
                             Remove
                           </Button>
-                        ) : null}
+                        ) : (
+                          <Button variant="danger" onClick={() => handlePermanentDelete(product)}>
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
